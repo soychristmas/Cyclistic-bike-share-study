@@ -1,0 +1,194 @@
+---
+title: "2021 rides"
+author: "Antonio"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Setting up my environment
+Notes: Setting up my R environment by loading the 'tidyverse',  
+'dplyr', 'readxl', and 'lubdridate' packages.
+
+```{r loading packages}
+library(tidyverse)
+library(dplyr)
+library(readxl)
+library(lubridate)
+```
+
+## Import Our Data
+Notes: Here we would be transferring our data from excel into R, the data can be found [ride data](https://divvy-tripdata.s3.amazonaws.com/index.html). What was added into the raw excel data is the difference from end_dration and start_duration and the different days using WEEKDAY function.  
+
+```{r Naming and loading data sheets of each month}
+m1_y2021 <- read_excel("~/Downloads/202101-divvy-tripdata(AutoRecovered).xls")
+m2_y2021 <- read_excel("~/Downloads/202102-divvy-tripdata.xls")
+m3_y2021 <- read_excel("~/Downloads/202103-divvy-tripdata.xls")
+m4_y2021 <- read_excel("~/Downloads/202104-divvy-tripdata.xls")
+m5_y2021 <- read_excel("~/Downloads/202105-divvy-tripdata.xls")
+m6_y2021 <- read_excel("~/Downloads/202106-divvy-tripdata.xls")
+m7_y2021 <- read_excel("~/Downloads/202107-divvy-tripdata.xls")
+m8_y2021 <- read_excel("~/Downloads/202108-divvy-tripdata.xls")
+m9_y2021 <- read_excel("~/Downloads/202109-divvy-tripdata.xls")
+m10_y2021 <- read_excel("~/Downloads/202110-divvy-tripdata.xls")
+m11_y2021 <- read_excel("~/Downloads/202111-divvy-tripdata.xls")
+m12_y2021 <- read_excel("~/Downloads/202112-divvy-tripdata.xls")
+```
+
+## Inspect Data
+Notes: Here we would be searching for incongruencies
+```{r Checking for any errors in column names}
+str(m1_y2021)
+str(m2_y2021)
+str(m3_y2021)
+str(m4_y2021)
+str(m5_y2021)
+str(m6_y2021)
+str(m7_y2021)
+str(m8_y2021)
+str(m9_y2021)
+str(m10_y2021)
+str(m11_y2021)
+str(m12_y2021)
+```
+
+## Join Data Frames
+Notes: Here we combine all data frames into one single data frame
+
+```{r combining all dataframes into one}
+all_2021 <- bind_rows(m1_y2021, m2_y2021, m3_y2021, m4_y2021, m5_y2021, m6_y2021, 
+                      m7_y2021, m8_y2021, m9_y2021, m10_y2021, m11_y2021, m12_y2021)
+```
+
+## Choosing What Columns to Keep
+Notes: Here we remove columns start_station_name, start_station_id, end_station_name, end_station_id, start_lat, start_lng, end_lat, end_lng, sum_casu_class_sun, sum_casu_elec_sun, average, mean_of_ridelength, ...19, ...20, ...21,max_ridelength, most_times_used that we were not going to use
+
+```{r selecting data that is not needed}
+all_2021 <- all_2021 %>%  
+  select(-c(start_station_name, start_station_id, end_station_name, end_station_id, 
+            start_lat, start_lng, end_lat, end_lng, sum_casu_class_sun, 
+            sum_casu_elec_sun, average, mean_of_ridelength, ...19, ...20, ...21,
+            max_ridelength, most_times_used))
+```
+
+## Formatting Date
+Notes: Here we added more columns where we can see date, date, month, day, and year of each ride, in order to aggregate the data at the level of the rider. 
+
+```{r adding more columns for date, month, day, year, and day of week}
+all_2021$date <- as.Date(all_2021$started_at)
+all_2021$month <- format(as.Date(all_2021$date), "%m")
+all_2021$day <- format(as.Date(all_2021$date), "%d")
+all_2021$year <- format(as.Date(all_2021$date), "%Y")
+all_2021$day_of_week <- format(as.Date(all_2021$date), "%A")
+```
+
+## Remove poor data
+Notes: Removing negative numbers because they dont represent user usage. 
+
+```{r Removing bad data}
+all_2021_v2 <- all_2021[!(all_2021$ride_length<0),]
+```
+
+## Descriptive analysis
+Notes: calculating the overall mean, median, max, and min
+
+```{r overall mean, median, mode}
+summary(all_2021_v2$ride_length)
+```
+
+## Compared members and casual riders
+Notes: Comparing members and casual riders by ride length using the mean, median, max, and min
+
+```{r comparing members and casual}
+aggregate(all_2021_v2$ride_length ~ all_2021_v2$member_casual, FUN = mean)
+aggregate(all_2021_v2$ride_length ~ all_2021_v2$member_casual, FUN = median)
+aggregate(all_2021_v2$ride_length ~ all_2021_v2$member_casual, FUN = max)
+aggregate(all_2021_v2$ride_length ~ all_2021_v2$member_casual, FUN = min)
+```
+
+## Average time by each day
+Notes: Here we calculate the average by each day and rideable type
+
+```{r Comparing average by each day and rideabletype per member and casual riders}
+aggregate(all_2021_v2$ride_length ~ all_2021_v2$member_casual + 
+            all_2021_v2$day_of_week + all_2021_v2$rideable_type, FUN = mean)
+```
+
+## Fixing the order of the days
+Notes: Changing the order so that the days go in order
+
+```{r ordering the days}
+all_2021_v2$day_of_week <- ordered(all_2021_v2$day_of_week, 
+                                    levels=c("Sunday", "Monday", "Tuesday", 
+                                             "Wednesday", "Thursday", "Friday", 
+                                             "Saturday"))
+```
+
+## Making sure the days are in order
+
+```{r checking if days are in order}
+aggregate(all_2021_v2$ride_length ~ all_2021_v2$member_casual + 
+            all_2021_v2$day_of_week + all_2021_v2$rideable_type, FUN = mean)
+```
+
+## Visualizing rides by rider type
+Notes: Here we perform some calculations and group by functions, and mutating to create weekday, while creating a visual of the data
+
+```{r Weekday vs. Number of Rides}
+all_2021_v2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>%
+  group_by(member_casual, weekday) %>%  
+  summarise(number_of_rides = n() 
+            ,average_duration = mean(ride_length)) %>% 		
+  arrange(member_casual, weekday) %>% 
+  ggplot(aes(x = weekday, y = number_of_rides, fill = member_casual)) +
+  geom_col(position = "dodge")+
+  labs(x = "Weekday", y = "Number of Rides", title = "Weekday vs. Number of Rides", fill = "Member/Casual")
+```
+
+## Visualizing Rides by Average Duration
+Notes: Here we used the same code as above and this time replaced number of rides to average duration, thus plotting
+weekday against average duration.
+
+```{r Weekday vs. Average Duration}
+all_2021_v2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>% 
+  group_by(member_casual, weekday) %>% 
+  summarise(number_of_rides = n()
+            ,average_duration = mean(ride_length)) %>% 
+  arrange(member_casual, weekday)  %>% 
+  ggplot(aes(x = weekday, y = average_duration, fill = member_casual)) +
+  geom_col(position = "dodge")+
+  labs(x = "Weekday", y = "Average Duration", title = "Weekday vs. Average Duration", fill = "Member/Casual")
+```
+
+## Visualizing type of bike by number of rides
+Notes: Here we perform the same calculations and plot type of bike against number of rides.
+
+```{r bike type vs. average duration}
+all_2021_v2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>% 
+  group_by(member_casual, weekday, rideable_type) %>% 
+  summarise(number_of_rides = n()
+            ,average_duration = mean(ride_length)) %>% 
+  arrange(member_casual, weekday)  %>% 
+  ggplot(aes(x = rideable_type, y = average_duration, fill = member_casual)) +
+  geom_col(position = "dodge")+
+  labs(x = "Bike Type", y = "Average Duration", title = "Bike Type vs. Average Duration", fill = "Member/Casual")
+```
+
+## Visualizing type of bike by average time spent
+Notes: Here we perform the same calculation but this time plot type of bike against average duration
+
+```{r Bike Type vs. Number or Rides}
+all_2021_v2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>%  #creates weekday field using wday()
+  group_by(member_casual, weekday, rideable_type) %>%  #groups by usertype and weekday
+  summarise(number_of_rides = n()							#calculates the number of rides and average duration 
+            ,average_duration = mean(ride_length)) %>% 		# calculates the average duration
+  arrange(member_casual, weekday) %>% 
+  ggplot(aes(x = rideable_type, y = number_of_rides, fill = member_casual)) +
+  geom_col(position = "dodge")+
+  labs(x = "Bike Type", y = "Number of Rides", title = "Bike Type vs. Number of Rides", fill = "Member/Casual")
+
+```
+
